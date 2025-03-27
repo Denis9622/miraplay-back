@@ -4,16 +4,12 @@ import { validateBody } from '../middlewares/validateBody.js'; // Middleware д�
 import {
   userRegisterSchema,
   userLoginSchema,
-  requestResetEmailSchema, // Добавляем схему валидации для отправки email сброса
-  resetPasswordSchema, // Добавляем схему валидации для сброса пароля
 } from '../validation/userValidation.js'; // Схемы валидации
 import {
   createUserController,
   loginUserController,
   refreshSessionController,
   logoutUserController,
-  requestResetEmailController, // Импортируем контроллер для отправки email
-  resetPasswordController, // Импортируем контроллер для сброса пароля
 } from '../controllers/auth.js'; // Контроллеры
 
 const router = express.Router();
@@ -42,20 +38,8 @@ router.post(
 router.post('/logout', ctrlWrapper(logoutUserController)); // Добавляем контроллер для логаута
 
 
-// Добавляем маршрут для отправки email сброса пароля
-router.post(
-  '/send-reset-email',
-  validateBody(requestResetEmailSchema),
-  ctrlWrapper(requestResetEmailController),
-);
 
 
-// Добавляем маршрут для сброса пароля
-router.post(
-  '/reset-pwd',
-  validateBody(resetPasswordSchema),
-  ctrlWrapper(resetPasswordController),
-);
 
 export default router;
 //Роут для запиту на скидання паролю

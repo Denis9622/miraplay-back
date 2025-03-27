@@ -1,15 +1,9 @@
-// src/services/auth.js
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import createHttpError from 'http-errors';
 import User from '../models/user.js'; // Импорт модели пользователя
 import Session from '../models/session.js'; // Импорт модели сессии
-import { SMTP, TEMPLATES_DIR } from '../constants/contacts-constants.js';
-import path from 'node:path';
-import handlebars from 'handlebars';
-import fs from 'node:fs/promises';
-import { sendEMail } from '../utils/sendMail.js'; // Оновлений шлях до файлу sendMail
 import { env } from './../env.js';
 
 
@@ -200,89 +194,3 @@ export async function logoutUser(refreshToken) {
   }
 }
 
-// Сервис для запроса токена сброса пароля
-export const requestResetToken = async (email) => {
-  // Найти пользователя по email
-  const user = await User.findOne({ email });
-  if (!user) {
-    throw createHttpError(404, 'User not found'); // Ошибка, если пользователь не найден
-  }
-
-  // Генерация JWT токена с ограниченным сроком действия
-  const resetToken = jwt.sign(
-    { userId: user._id, email: user.email }, // Информация, которая будет закодирована в токене
-    env('JWT_SECRET'), // Секрет для подписи токена
-    { expiresIn: '15m' }, // Токен действует 15 минут
-  );
-
-  // Путь к шаблону email для сброса пароля
-  const resetPasswordTemplatePath = path.join(
-    TEMPLATES_DIR,
-    'reset-password-email.html',
-  );
-
-  // Чтение шаблона email
-  const templateSource = await fs.readFile(resetPasswordTemplatePath, 'utf8');
-  const template = handlebars.compile(templateSource); // Компиляция шаблона
-
-  // Ссылка для сброса пароля
-  const resetLink = `${env('APP_DOMAIN')}/reset-password?token=${resetToken}`;
-
-  // Рендеринг шаблона с данными пользователя
-  const html = template({
-    name: user.name,
-    link: resetLink,
-  });
-
-  // Отправка email с токеном сброса
-  await sendEMail({
-    from: env(SMTP.SMTP_FROM),
-    to: email,
-    subject: 'Reset your password',
-    html,
-  });
-};
-
-// Сервис для сброса пароля
-export const resetPassword = async (token, newPassword) => {
-  try {
-    // Верификация токена и получение данных
-    const decoded = jwt.verify(token, env('JWT_SECRET'));
-
-    // Поиск пользователя по ID, извлеченному из токена
-    const user = await User.findById(decoded.userId); // Используем userId (sub) из токена
-
-    if (!user) {
-      throw createHttpError(404, 'User not found!');
-    }
-
-    // Проверяем, что новый пароль передан и не пустой
-    if (!newPassword || newPassword.trim() === '') {
-      throw createHttpError(400, 'Password is required');
-    }
-
-    // Указываем количество раундов соли для bcrypt
-    const saltRounds = 10; // Стандартное количество раундов соли
-
-    // Хешируем новый пароль перед сохранением
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Обновляем пароль пользователя
-    user.password = hashedPassword;
-    await user.save();
-
-    // Удаляем все активные сессии пользователя
-    await Session.deleteMany({ userId: user._id });
-
-    return user;
-  } catch (error) {
-    if (
-      error.name === 'TokenExpiredError' ||
-      error.name === 'JsonWebTokenError'
-    ) {
-      throw createHttpError(401, 'Token is expired or invalid.');
-    }
-    console.error('Error in resetPassword:', error);
-    throw error;
-  }
-};
