@@ -19,7 +19,11 @@ export function setupServer() {
   app.use(cookieParser());
   app.use(
     cors({
-      origin: ['http://localhost:5173', 'https://miraplay-front.vercel.app'],
+      origin: [
+        'http://localhost:5173',
+        'https://miraplay-front.vercel.app',
+        'https://miraplay-back.onrender.com',
+      ],
       credentials: true,
     }),
   );

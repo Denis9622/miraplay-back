@@ -1,7 +1,9 @@
 import Game from '../models/game.js';
 import createHttpError from 'http-errors';
+
 import axios from 'axios';
-import { emitPopularGame, emitNewGame } from '../socket.js';
+
+
 
 export async function getGamesController(req, res) {
   try {
@@ -101,10 +103,6 @@ export async function addGameController(req, res) {
       releaseDate,
       inTop,
     });
-
-    // Отправляем уведомление о новой игре
-    emitNewGame(newGame);
-
     res.status(201).json({
       status: 201,
       message: 'Game added successfully',
@@ -122,19 +120,10 @@ export async function addGameController(req, res) {
 
 export async function updateGameController(req, res) {
   const { id } = req.params;
-  const oldGame = await Game.findById(id);
-
-  if (!oldGame) {
+  const updatedGame = await Game.findByIdAndUpdate(id, req.body, { new: true });
+  if (!updatedGame) {
     throw createHttpError(404, 'Game not found');
   }
-
-  const updatedGame = await Game.findByIdAndUpdate(id, req.body, { new: true });
-
-  // Проверяем, изменился ли статус inTop
-  if (oldGame.inTop !== updatedGame.inTop && updatedGame.inTop === true) {
-    emitPopularGame(updatedGame);
-  }
-
   res.json({
     status: 200,
     message: 'Game updated successfully',
@@ -150,6 +139,7 @@ export async function deleteGameController(req, res) {
   }
   res.status(204).send();
 }
+
 
 export const getGameByIdController = async (req, res) => {
   const { id } = req.params;

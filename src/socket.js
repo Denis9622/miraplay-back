@@ -6,7 +6,11 @@ const onlineUsers = new Map();
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: ['http://localhost:5173', 'https://miraplay-front.vercel.app'],
+      origin: [
+        'http://localhost:5173',
+        'https://miraplay-front.vercel.app',
+        'https://miraplay-back.onrender.com',
+      ],
       credentials: true,
     },
   });
