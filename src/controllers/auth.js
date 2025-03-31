@@ -4,13 +4,10 @@ import createHttpError from 'http-errors'; // Для создания HTTP ош�
 import bcrypt from 'bcrypt'; // Для хеширования паролей
 import jwt from 'jsonwebtoken'; // Для работы с JWT токенами
 
-
 // Секреты и настройки для токенов (их следует хранить в переменных окружения)
 const JWT_SECRET = process.env.JWT_SECRET || 'secretKey'; // Секрет для JWT токенов
 const JWT_EXPIRES_IN = '15m'; // Время жизни access токена — 15 минут
 const REFRESH_TOKEN_EXPIRES_IN = '30d'; // Время жизни refresh токена — 30 дней
-
-
 
 export async function createUserController(req, res, next) {
   try {
@@ -51,7 +48,7 @@ export async function createUserController(req, res, next) {
 export async function loginUserController(req, res, next) {
   try {
     const { email, password } = req.body;
-    
+
     // Проверяем, переданы ли email и пароль
     if (!email || !password) {
       throw createHttpError(400, 'Email и пароль обязательны'); // Ошибка 400, если данные неполные
@@ -72,14 +69,15 @@ export async function loginUserController(req, res, next) {
     // Создаем access и refresh токены с использованием JWT
     const accessToken = jwt.sign({ userId: user._id }, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
-
     });
     const refreshToken = jwt.sign({ userId: user._id }, JWT_SECRET, {
       expiresIn: REFRESH_TOKEN_EXPIRES_IN,
     });
 
     const accessTokenValidUntil = new Date(Date.now() + 15 * 60 * 1000); // Токен на 15 минут
-    const refreshTokenValidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Токен на 30 дней
+    const refreshTokenValidUntil = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ); // Токен на 30 дней
 
     // Создаем новую сессию и сохраняем её в базе данных
     await Session.create({
@@ -90,13 +88,16 @@ export async function loginUserController(req, res, next) {
       refreshTokenValidUntil,
     });
 
-    // Устанавливаем refresh токен в cookies (например, на 30 дней)
+    // Устанавливаем refresh токен в cookies
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, // Ограничиваем доступ к cookie только через HTTP (защита от XSS)
-      secure: process.env.NODE_ENV === 'production', // Включаем secure только в продакшене
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      path: '/',
+      domain:
+        process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
     });
-
 
     // Возвращаем успешный ответ с access токеном
     res.status(200).json({
@@ -153,6 +154,10 @@ export async function refreshSessionController(req, res, next) {
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      path: '/',
+      domain:
+        process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
     });
 
@@ -172,19 +177,15 @@ export async function refreshSessionController(req, res, next) {
 // Контроллер для выхода пользователя (logout)
 export async function logoutUserController(req, res, next) {
   try {
-    const { refreshToken } = req.cookies; // Получаем refresh токен из cookies
+    const { refreshToken } = req.cookies;
 
-    // Логирование для отладки
     console.log('Received refreshToken:', refreshToken);
 
-    // Проверяем, передан ли refresh токен
     if (!refreshToken) {
-      throw createHttpError(401, 'Refresh token required'); // Ошибка 401, если токен отсутствует
+      throw createHttpError(401, 'Refresh token required');
     }
 
-    // Проверка наличия сессии в базе данных
     const session = await Session.findOneAndDelete({ refreshToken });
-
     console.log('Session found:', session);
 
     if (!session) {
@@ -195,16 +196,14 @@ export async function logoutUserController(req, res, next) {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      path: '/',
+      domain:
+        process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
     });
 
-    // Возвращаем успешный ответ без тела
     res.status(204).send();
   } catch (error) {
-    next(error); // Передаем ошибку в следующий middleware для обработки
+    next(error);
   }
 }
-
-
-
-
-
